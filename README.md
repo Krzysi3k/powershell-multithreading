@@ -1,3 +1,3 @@
 # powershell-multithreading
 
--utilizing runspaces to created multiple threads
+-utilizing runspaces to create multiple threads
