@@ -3,33 +3,32 @@
 #
 
 $computers = Get-Content C:\testing\multi_threading\W8-PL.TXT | Where-Object {$_ -match "W8-PL"}
+$scriptBlock = {
+    Param([string]$computer)
+    [datetime]$timePoint = "2016-01-01"
+    try
+    {
+        $result = ls -Path \\$computer\C$\Windows\SysWOW64\CCM\Cache | Where-Object {$_.LastWriteTime -lt $timePoint} -ErrorAction Stop
+        if($result) {
+            [System.IO.File]::WriteAllLines("C:\testing\multi_threading\Cleanup\removed_files$computer.log", $($result | select Name,LastWriteTime))
+            $result | Remove-Item -Recurse -Force
+            return "old sccm cache files removed from:$computer"
+        } else {
+            return $null
+        }
+    }
+    catch
+    {
+        # catch errors:
+        Write-Output "cannot remove files from: $computer" | Out-File C:\testing\multi_threading\Cleanup\err_out_$computer.log -Append
+        return "no information from: $computer"
+    }
+}
 
 function Clean-SCCM-Cache
 {
     [CMDletBinding()]Param()
     [int]$maxThreads = 50
-
-    $scriptBlock = {
-        Param([string]$computer)
-        [datetime]$timePoint = "2016-01-01"
-        try
-        {
-            $result = ls -Path \\$computer\C$\Windows\SysWOW64\CCM\Cache | Where-Object {$_.LastWriteTime -lt $timePoint} -ErrorAction Stop
-            if($result) {
-                [System.IO.File]::WriteAllLines("C:\testing\multi_threading\Cleanup\removed_files$computer.log", $($result | select Name,LastWriteTime))
-                $result | Remove-Item -Recurse -Force
-                return "old sccm cache files removed from:$computer"
-            } else {
-                return $null
-            }
-        }
-        catch
-        {
-            # catch errors:
-            Write-Output "cannot remove files from: $computer" | Out-File C:\testing\multi_threading\Cleanup\err_out_$computer.log -Append
-            return "no information from: $computer"
-        }
-    }
 
     $threads = @()
     $runspacePool = [runspacefactory]::CreateRunspacePool(1, $maxThreads)
